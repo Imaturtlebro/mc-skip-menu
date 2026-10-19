@@ -12,17 +12,16 @@ static DWORD WINAPI AutoJoinThread(LPVOID);
 static void SendClick(IUIAutomation* uia, IUIAutomationElement* el) {
     (void)uia;
     if (!el) return;
-    VARIANT v;
-    v.vt = VT_EMPTY;
-    IUIAutomationInvokePattern* inv = nullptr;
-    if (SUCCEEDED(el->GetCurrentPattern(UIA_InvokePatternId, &v)) && v.punkVal) {
-        inv = static_cast<IUIAutomationInvokePattern*>(v.punkVal);
-        inv->Invoke();
-        inv->Release();
-        VariantClear(&v);
+    IUnknown* punk = nullptr;
+    if (SUCCEEDED(el->GetCurrentPattern(UIA_InvokePatternId, &punk)) && punk) {
+        IUIAutomationInvokePattern* inv = nullptr;
+        if (SUCCEEDED(punk->QueryInterface(__uuidof(IUIAutomationInvokePattern), (void**)&inv)) && inv) {
+            inv->Invoke();
+            inv->Release();
+        }
+        punk->Release();
         return;
     }
-    VariantClear(&v);
     // fallback: synthesize a click at the element's clickable point
     POINT pt = { 0, 0 };
     BOOL got = FALSE;
