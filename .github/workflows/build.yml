@@ -6,7 +6,7 @@ on:
   pull_request:
   workflow_dispatch:
 
-dpermissions:
+permissions:
   contents: write
 
 jobs:
