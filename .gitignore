@@ -1,0 +1,5 @@
+build/
+dist/
+mc-skip-menu.zip
+.vs/
+*.pdb
