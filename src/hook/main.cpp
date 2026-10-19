@@ -10,12 +10,13 @@
 static DWORD WINAPI AutoJoinThread(LPVOID);
 
 static void SendClick(IUIAutomation* uia, IUIAutomationElement* el) {
+    (void)uia;
     if (!el) return;
     VARIANT v;
     v.vt = VT_EMPTY;
     IUIAutomationInvokePattern* inv = nullptr;
     if (SUCCEEDED(el->GetCurrentPattern(UIA_InvokePatternId, &v)) && v.punkVal) {
-        inv = (IUIAutomationInvokePattern*)v.punkVal;
+        inv = static_cast<IUIAutomationInvokePattern*>(v.punkVal);
         inv->Invoke();
         inv->Release();
         VariantClear(&v);
@@ -23,10 +24,11 @@ static void SendClick(IUIAutomation* uia, IUIAutomationElement* el) {
     }
     VariantClear(&v);
     // fallback: synthesize a click at the element's clickable point
-    RECT r;
-    if (SUCCEEDED(el->GetClickablePoint(&r, nullptr))) {
-        DWORD x = (DWORD)((65535.0f * (r.left + r.right) / 2) / GetSystemMetrics(SM_CXSCREEN));
-        DWORD y = (DWORD)((65535.0f * (r.top + r.bottom) / 2) / GetSystemMetrics(SM_CYSCREEN));
+    POINT pt = { 0, 0 };
+    BOOL got = FALSE;
+    if (SUCCEEDED(el->GetClickablePoint(&pt, &got)) && got) {
+        DWORD x = static_cast<DWORD>((65535.0f * pt.x) / GetSystemMetrics(SM_CXSCREEN));
+        DWORD y = static_cast<DWORD>((65535.0f * pt.y) / GetSystemMetrics(SM_CYSCREEN));
         mouse_event(MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_LEFTDOWN, x, y, 0, 0);
         mouse_event(MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_LEFTUP, x, y, 0, 0);
     }
@@ -73,8 +75,11 @@ static DWORD WINAPI AutoJoinThread(LPVOID) {
     Sleep(12000);
 
     IUIAutomation* uia = nullptr;
-    if (FAILED(CoCreateInstance(CLSID_CUIAutomation, nullptr, CLSCTX_INPROC_SERVER, IID_IUIAutomation, (void**)&uia)))
-        { CoUninitialize(); return 0; }
+    if (FAILED(CoCreateInstance(CLSID_CUIAutomation, nullptr, CLSCTX_INPROC_SERVER,
+                                IID_IUIAutomation, reinterpret_cast<void**>(&uia)))) {
+        CoUninitialize();
+        return 0;
+    }
 
     // Step 1: find the Minecraft window
     IUIAutomationElement* desktop = nullptr;
