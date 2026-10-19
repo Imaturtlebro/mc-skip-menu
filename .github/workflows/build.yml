@@ -14,12 +14,27 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build (MSVC via CMake)
+        id: build
         shell: pwsh
         run: |
-          cmake -S . -B build
-          cmake --build build --config Release
+          try {
+            cmake -S . -B build 2>&1 | Tee-Object -FilePath build.log
+            if ($LASTEXITCODE -ne 0) { throw "configure failed" }
+            cmake --build build --config Release 2>&1 | Tee-Object -FilePath build.log -Append
+            if ($LASTEXITCODE -ne 0) { throw "build failed" }
+          } catch {
+            # commit the log to fail-log.txt so it is publicly readable
+            git config user.email "ci@noreply.users.noreply.github.com"
+            git config user.name "ci"
+            git add build.log
+            git commit -m "ci: build log" || echo "no log"
+            git push || echo "push failed"
+            exit 1
+          }
 
       - name: Package
         shell: pwsh
